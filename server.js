@@ -9,7 +9,20 @@ app.use(express.json());
 // Store lobbies
 let lobbies = {};
 
-// ✅ FIXED: Add proper root endpoint
+// Clean up old lobbies every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    const timeout = 30 * 60 * 1000; // 30 minutes
+    
+    Object.keys(lobbies).forEach(lobbyId => {
+        if (now - lobbies[lobbyId].timestamp > timeout) {
+            console.log(`Removed expired lobby: ${lobbyId}`);
+            delete lobbies[lobbyId];
+        }
+    });
+}, 5 * 60 * 1000);
+
+// ✅ Root endpoint
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Matchmaking Server is running!',
@@ -18,7 +31,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// ✅ FIXED: Add health endpoint
+// ✅ Health endpoint
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
@@ -27,7 +40,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Register lobby
+// ✅ Register lobby
 app.post('/register', (req, res) => {
     try {
         const { lobbyId, hostPublicIp, hostLocalPort } = req.body;
@@ -50,7 +63,7 @@ app.post('/register', (req, res) => {
     }
 });
 
-// Get lobby info
+// ✅ Get lobby info
 app.get('/lobby/:lobbyId', (req, res) => {
     try {
         const lobbyId = req.params.lobbyId;
@@ -74,10 +87,11 @@ app.get('/lobby/:lobbyId', (req, res) => {
     }
 });
 
-// Handle 404 for undefined routes
-app.use('*', (req, res) => {
+// ✅ FIXED: 404 handler - use app.all() instead of app.use('*')
+app.all('*', (req, res) => {
     res.status(404).json({ 
         error: 'Endpoint not found',
+        path: req.path,
         availableEndpoints: [
             'GET /',
             'GET /health', 
@@ -90,5 +104,5 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Matchmaking server running on port ${PORT}`);
-    console.log(`📍 Test URL: https://matchmaking-server-ins6.onrender.com/health`);
+    console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
 });
