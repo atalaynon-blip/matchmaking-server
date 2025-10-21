@@ -87,11 +87,12 @@ app.get('/lobby/:lobbyId', (req, res) => {
     }
 });
 
-// ✅ FIXED: 404 handler - use app.all() instead of app.use('*')
-app.all('*', (req, res) => {
+// ✅ FIXED: 404 handler - Use a simple middleware at the end
+app.use((req, res) => {
     res.status(404).json({ 
         error: 'Endpoint not found',
         path: req.path,
+        method: req.method,
         availableEndpoints: [
             'GET /',
             'GET /health', 
