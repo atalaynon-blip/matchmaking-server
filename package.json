@@ -4,7 +4,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start:matchmaking": "node server.js",
+    "start:matchmaking": "node server.cjs",
     "start:relay": "node relay.js"
   },
   "dependencies": {
