@@ -27,7 +27,13 @@ app.get('/', (req, res) => {
     res.json({ 
         message: 'Matchmaking Server is running!',
         status: 'ok',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        endpoints: {
+            health: 'GET /health',
+            register: 'POST /register',
+            lobbies: 'GET /lobbies',
+            lobbyById: 'GET /lobby/:lobbyId'
+        }
     });
 });
 
@@ -50,12 +56,13 @@ app.post('/register', (req, res) => {
         }
 
         lobbies[lobbyId] = { 
+            lobbyId: lobbyId,  // Include lobbyId in the stored object
             ip: hostPublicIp, 
             port: hostLocalPort,
             timestamp: Date.now()
         };
         
-        console.log(`Registered lobby ${lobbyId} @ ${hostPublicIp}:${hostLocalPort}`);
+        console.log(`✅ Registered lobby ${lobbyId} @ ${hostPublicIp}:${hostLocalPort}`);
         res.json({ success: true });
     } catch (error) {
         console.error('Registration error:', error);
@@ -63,7 +70,7 @@ app.post('/register', (req, res) => {
     }
 });
 
-// ✅ Get lobby info
+// ✅ Get lobby info by ID
 app.get('/lobby/:lobbyId', (req, res) => {
     try {
         const lobbyId = req.params.lobbyId;
@@ -73,7 +80,7 @@ app.get('/lobby/:lobbyId', (req, res) => {
             return res.status(404).json({ error: 'Lobby not found' });
         }
         
-        // Update timestamp
+        // Update timestamp when accessed
         info.timestamp = Date.now();
         
         res.json({ 
@@ -87,7 +94,44 @@ app.get('/lobby/:lobbyId', (req, res) => {
     }
 });
 
-// ✅ FIXED: 404 handler - Use a simple middleware at the end
+// ✅ NEW: Get all active lobbies (for InternetLobbyUI)
+app.get('/lobbies', (req, res) => {
+    try {
+        // Convert lobbies object to array
+        const lobbyList = Object.keys(lobbies).map(lobbyId => ({
+            lobbyId: lobbyId,
+            ip: lobbies[lobbyId].ip,
+            port: lobbies[lobbyId].port,
+            timestamp: lobbies[lobbyId].timestamp
+        }));
+        
+        console.log(`📋 Returning ${lobbyList.length} active lobbies`);
+        res.json(lobbyList);
+    } catch (error) {
+        console.error('Lobbies list error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ✅ Optional: Delete lobby endpoint (for manual cleanup)
+app.delete('/lobby/:lobbyId', (req, res) => {
+    try {
+        const lobbyId = req.params.lobbyId;
+        
+        if (lobbies[lobbyId]) {
+            delete lobbies[lobbyId];
+            console.log(`🗑️  Deleted lobby: ${lobbyId}`);
+            res.json({ success: true, message: 'Lobby deleted' });
+        } else {
+            res.status(404).json({ error: 'Lobby not found' });
+        }
+    } catch (error) {
+        console.error('Delete error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ✅ 404 handler - Must be LAST
 app.use((req, res) => {
     res.status(404).json({ 
         error: 'Endpoint not found',
@@ -97,7 +141,9 @@ app.use((req, res) => {
             'GET /',
             'GET /health', 
             'POST /register',
-            'GET /lobby/:id'
+            'GET /lobbies',
+            'GET /lobby/:id',
+            'DELETE /lobby/:id'
         ]
     });
 });
@@ -106,4 +152,16 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Matchmaking server running on port ${PORT}`);
     console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
+    console.log(`📋 Lobbies list: http://0.0.0.0:${PORT}/lobbies`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down...');
+    process.exit(0);
 });
